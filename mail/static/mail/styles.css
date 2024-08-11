@@ -1,0 +1,8 @@
+textarea {
+    min-height: 400px;
+}
+
+.load_email {
+    display: flex;
+    justify-content: space-between;
+}
