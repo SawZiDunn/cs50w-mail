@@ -49,64 +49,66 @@ ${email.body}
 
 
 function view_email(id, mailbox) {
+  // Hide other views, show email details
   document.querySelector('#emails-view').style.display = 'none';
-  document.querySelector('#compose-view').style.display = 'none ';
+  document.querySelector('#compose-view').style.display = 'none';
   document.querySelector('#email-details').style.display = 'block';
 
   fetch(`/emails/${id}`)
-        .then(response => response.json())
-        .then(email => {
-          const div =  document.querySelector('#email-details');
-            
-          div.innerHTML = `
+    .then(response => response.json())
+    .then(email => {
+      const div = document.querySelector('#email-details');
 
-            <p><b>From:</b> ${email.sender}</p>
-            <p><b>To: </b> ${email.recipients}</p>
-            <p><b>Subject: </b> ${email.subject}</p>
-            <p><b>Timestamp: </b> ${email.timestamp}</p>
-            <hr>
-            <div style="white-space: pre-line;">${email.body}</div>
-            <br>
-            `;
-    
-          if (mailbox === 'inbox') {
+      div.innerHTML = `
+        <div class="border rounded p-3 shadow-sm">
+          <p><b>From:</b> ${email.sender}</p>
+          <p><b>To:</b> ${email.recipients.join(', ')}</p>
+          <p><b>Subject:</b> ${email.subject}</p>
+          <p><b>Timestamp:</b> ${email.timestamp}</p>
+          <hr>
+          <pre class="p-2 bg-light border rounded">${email.body}</pre>
+          <div class="mt-3 d-flex gap-2"></div>
+        </div>
+      `;
 
-            fetch(`/emails/${id}`, {
-              method: 'PUT',
-              body: JSON.stringify({
-                  read: true,
-              })
-            })
+      // Mark email as read if in inbox
+      if (mailbox === 'inbox') {
+        fetch(`/emails/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ read: true })
+        });
+      }
 
-          }
+      const buttonContainer = div.querySelector('.d-flex');
 
-          console.log(email.read);
+      // Archive/Unarchive Button (Not for Sent Mail)
+      if (mailbox !== 'sent') {
+        const archiveButton = document.createElement('button');
+        archiveButton.className = 'btn btn-sm btn-outline-primary';
+        archiveButton.innerHTML = email.archived ? 'Unarchive' : 'Archive';
 
-          if (mailbox !== 'sent') {
-            const button = document.createElement('button');
-            button.className = 'btn btn-sm btn-outline-primary';
-            button.innerHTML = email.archived? 'Unarchive' : 'Archive';
-            button.addEventListener('click', function() {
-              fetch(`/emails/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify({archived: !email.archived,})
-              })
-              .then(() => load_mailbox('inbox'));
-            })
-        
-            div.append(button);
-          }
-            
-            
-          const new_button = document.createElement("button");
-          new_button.className = 'btn btn-sm btn-outline-primary mx-2';
-          new_button.innerHTML = "Reply";
-          new_button.addEventListener('click', () => reply_email(email));
+        archiveButton.addEventListener('click', function() {
+          fetch(`/emails/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ archived: !email.archived })
+          })
+          .then(response => response.json())
+          .then(() => load_mailbox('inbox')); // Reload after request completes
+        });
 
-          div.append(new_button);
+        buttonContainer.append(archiveButton);
+      }
 
-      })
+      // Reply Button
+      const replyButton = document.createElement('button');
+      replyButton.className = 'btn btn-sm btn-outline-primary';
+      replyButton.innerHTML = "Reply";
+      replyButton.addEventListener('click', () => reply_email(email));
+
+      buttonContainer.append(replyButton);
+    });
 }
+
 
 
 function load_mailbox(mailbox) {
@@ -117,44 +119,43 @@ function load_mailbox(mailbox) {
   document.querySelector('#email-details').style.display = 'none';
 
   // Show the mailbox name
-  document.querySelector('#emails-view').innerHTML = `<h3>${mailbox.charAt(0).toUpperCase() + mailbox.slice(1)}</h3>`;
+  document.querySelector('#emails-view').innerHTML = `
+    <h3 class="mb-3">${mailbox.charAt(0).toUpperCase() + mailbox.slice(1)}</h3>
+  `;
 
   fetch(`/emails/${mailbox}`)
   .then(response => response.json())
   .then(emails => {
 
-    // console.log(Object.keys(emails).length);
-    // console.log(emails.length);
+    if (emails.length === 0) {
+      const div = document.createElement('div');
+      div.className = 'alert alert-info my-3';
+      div.innerHTML = '<h5>No Emails!</h5>';
+      document.querySelector('#emails-view').append(div);
+      return;
+    }
 
     emails.forEach(email => {
       const div = document.createElement('div');
       
-      div.className = 'list-group-item';
-      div.style = `
-        display: flex;
-        justify-content: space-between; 
-      `;
-
-      div.style.backgroundColor = email.read? "grey" : "white";
-      // div.classList.add('load_email');
+      div.className = 'list-group-item shadow-sm p-3 my-2 rounded d-flex justify-content-between align-items-center';
+      div.style.backgroundColor = email.read ? "#f0f0f0" : "white"; 
+      div.style.cursor = "pointer";  
+      div.style.transition = "0.3s";
 
       div.innerHTML = `
-      <div><b>${email.sender}</b></div>
-      <div><p>${email.subject}</p></div>
-      <div><small>${email.timestamp}</small></div>
-       `;
+        <div>
+          <b>${email.sender}</b> 
+          <span class="text-muted"> - ${email.subject.length > 50 ? email.subject.slice(0, 50) + "..." : email.subject}</span>
+        </div>
+        <div><small class="text-muted">${email.timestamp}</small></div>
+      `;
 
       div.addEventListener('click', () => view_email(email.id, mailbox));
 
       document.querySelector('#emails-view').append(div);
     });
 
-    if (emails.length === 0) {
-      const div = document.createElement('div');
-      div.className = 'my-3';
-      div.innerHTML = '<h5>No Email!</h5>';
-      document.querySelector('#emails-view').append(div);
-    }
   });
 }
 
